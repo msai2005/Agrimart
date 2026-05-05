@@ -25,15 +25,15 @@ It helps farmers, traders, and consumers make better decisions using data-driven
 
 ## 🛠️ Tech Stack
 
-### Frontend
+## Frontend
 - HTML, CSS, JavaScript
 - Vite / React (if used)
 
-### Backend
+## Backend
 - Python (Flask)
 
-### Database
-- (Add if used: MySQL / MongoDB / SQLite)
+## Database
+MongoDB
 
 ### Machine Learning
 - Scikit-learn
