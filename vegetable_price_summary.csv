@@ -1,0 +1,14 @@
+Vegetable,Actual Price,Predicted Price,Error
+bananas,0.99,0.99,0.0
+brinjals,1.0,1.02,0.02
+cabbages,1.01,1.01,0.0
+cauliflowers,1.01,1.01,0.0
+green_chillis,1.01,1.01,0.0
+lemons,1.01,1.02,0.01
+mangoes,1.01,1.02,0.0
+onions,1.05,1.05,0.0
+papayas,1.02,1.02,0.0
+potatoes,1.02,1.02,0.0
+rice,0.99,0.99,0.0
+tomatoes,1.01,1.01,0.0
+water_melons,1.0,1.0,0.01

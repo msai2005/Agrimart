@@ -1,0 +1,551 @@
+.navbar {
+  width: 100%;
+  height: 70px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1200;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 5%;
+
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.logo {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: -0.5px;
+  z-index: 1100;
+  margin-right: 3rem; /* Add space between title and tabs */
+}
+
+.nav-links {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 2.2rem; /* Increased gap for breathing room */
+  position: static;
+  transform: none;
+  height: auto;
+  background: none;
+}
+
+.nav-links li {
+  margin: 0;
+}
+
+.nav-links a {
+  color: var(--text-dark);
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: var(--transition);
+  position: relative;
+}
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -4px;
+  left: 0;
+  background-color: var(--primary);
+  transition: var(--transition);
+}
+
+.nav-links a:hover,
+.nav-links a.active {
+  color: var(--primary);
+}
+
+.nav-links a:hover::after,
+.nav-links a.active::after {
+  width: 100%;
+}
+
+.drawer-header {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 70px;
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.close-btn {
+  font-size: 1.5rem;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.close-btn:hover {
+  color: var(--danger);
+  transform: scale(1.1);
+}
+
+/* ---------- BACKDROP ---------- */
+
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+}
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  cursor: pointer;
+  gap: 5px;
+}
+
+.hamburger span {
+  width: 24px;
+  height: 2px;
+  background: var(--text-dark);
+  border-radius: 2px;
+  transition: var(--transition);
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 1.5rem;
+  }
+
+  /* Show hamburger */
+  .hamburger {
+    display: flex;
+    z-index: 1300;
+  }
+
+  /* Show drawer header ONLY on mobile */
+  .drawer-header {
+    display: flex;
+  }
+
+  /* Convert nav-links into drawer */
+  .nav-links {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 280px;
+    height: 100vh;
+
+    background: var(--bg-card);
+    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
+
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+
+    padding: 100px 30px 30px;
+    gap: 1.5rem;
+
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+    z-index: 1100;
+  }
+
+  .nav-links.active {
+    transform: translateX(0);
+  }
+
+  .nav-links a {
+    font-size: 1.1rem;
+    width: 100%;
+    display: block;
+  }
+}
+
+/* ---------- AUTH BUTTONS ---------- */
+
+.nav-auth-btn {
+  background: var(--primary);
+  color: white !important;
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+
+.nav-auth-btn::after {
+  display: none;
+}
+
+.nav-auth-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  color: white !important;
+}
+
+.nav-logout-btn {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-logout-btn:hover {
+  background: var(--danger);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.search-trigger-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-dark);
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.search-trigger-btn:hover {
+  background: rgba(22, 101, 52, 0.1);
+  color: var(--primary);
+  transform: scale(1.1);
+}
+
+/* Phonetic Translation Toggles */
+.phonetic-text {
+  display: inline-block;
+}
+
+.phonetic-text .tr-label {
+  display: none;
+}
+
+/* Default (English) should show native text but we hide it via google but Google might translate it. 
+   So we use notranslate on the native label. */
+.phonetic-text .native-label {
+  display: inline;
+}
+
+/* Telugu Toggles */
+html[lang="te"] .phonetic-text .tr-label.te { display: inline !important; }
+html[lang="te"] .phonetic-text .native-label { display: none !important; }
+
+/* Hindi Toggles */
+html[lang="hi"] .phonetic-text .tr-label.hi { display: inline !important; }
+html[lang="hi"] .phonetic-text .native-label { display: none !important; }
+
+/* Tamil Toggles */
+html[lang="ta"] .phonetic-text .tr-label.ta { display: inline !important; }
+html[lang="ta"] .phonetic-text .native-label { display: none !important; }
+
+/* Kannada Toggles */
+html[lang="kn"] .phonetic-text .tr-label.kn { display: inline !important; }
+html[lang="kn"] .phonetic-text .native-label { display: none !important; }
+
+/* Malayalam Toggles */
+html[lang="ml"] .phonetic-text .tr-label.ml { display: inline !important; }
+html[lang="ml"] .phonetic-text .native-label { display: none !important; }
+
+/* Marathi Toggles */
+html[lang="mr"] .phonetic-text .tr-label.mr { display: inline !important; }
+html[lang="mr"] .phonetic-text .native-label { display: none !important; }
+
+/* Gujarati Toggles */
+html[lang="gu"] .phonetic-text .tr-label.gu { display: inline !important; }
+html[lang="gu"] .phonetic-text .native-label { display: none !important; }
+
+/* Punjabi Toggles */
+html[lang="pa"] .phonetic-text .tr-label.pa { display: inline !important; }
+html[lang="pa"] .phonetic-text .native-label { display: none !important; }
+
+/* Bengali Toggles */
+html[lang="bn"] .phonetic-text .tr-label.bn { display: inline !important; }
+html[lang="bn"] .phonetic-text .native-label { display: none !important; }
+
+/* Odia Toggles */
+html[lang="or"] .phonetic-text .tr-label.or { display: inline !important; }
+html[lang="or"] .phonetic-text .native-label { display: none !important; }
+
+/* Assamese Toggles */
+html[lang="as"] .phonetic-text .tr-label.as { display: inline !important; }
+html[lang="as"] .phonetic-text .native-label { display: none !important; }
+
+
+/* ---------- PROFILE ICON ---------- */
+
+.nav-profile-btn {
+  background: white;
+  color: var(--text-dark);
+  border: 1px solid var(--border-color);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: var(--transition);
+  font-weight: 700;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.nav-profile-btn:hover {
+  background: #f0fdf4;
+  color: var(--primary);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(22, 101, 52, 0.1);
+}
+
+.profile-name-text {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mobile drawer alignment */
+@media (max-width: 768px) {
+  .nav-profile-btn {
+    width: 46px;
+    height: 46px;
+  }
+}
+
+/* ---------- TRANSLATE WIDGET ---------- */
+.translate-widget-container {
+  display: flex;
+  align-items: center;
+}
+
+.language-selector-btn {
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #5f6368;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: inherit;
+}
+
+.language-selector-btn:hover {
+  background: #f8f9fa;
+  border-color: #bdc1c6;
+}
+
+.language-selector-btn .lang-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #3c4043;
+}
+
+/* Hide Google Translate top bar & elements */
+.goog-te-banner-frame, 
+.goog-te-banner,
+.skiptranslate.goog-te-banner-frame,
+iframe.goog-te-banner-frame,
+#goog-gt-tt, 
+.goog-te-balloon-frame,
+.VIpgJd-Zvi9qb-OR9h33-mlUOnb,
+#\3a 1\.container,
+iframe.skiptranslate {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  width: 0 !important;
+  pointer-events: none !important;
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+html { 
+  margin-top: 0px !important; 
+  height: 100% !important; 
+}
+
+/* Hide the powered by google logo & text */
+.goog-logo-link {
+  display: none !important;
+} 
+
+.goog-te-gadget {
+  color: transparent !important;
+  font-size: 0 !important;
+}
+
+/* Hide the "Google Translate" text specifically if font-size 0 isn't enough */
+.goog-te-gadget span {
+  display: none !important;
+}
+
+/* Stylize the dropdown */
+.goog-te-combo {
+  padding: 6px 10px; /* Reduced padding */
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background-color: white;
+  color: var(--text-dark);
+  font-family: inherit;
+  font-size: 0.85rem; /* Slightly smaller font */
+  outline: none;
+  cursor: pointer;
+  transition: var(--transition);
+  margin: 0;
+  max-width: 130px; /* Limit width */
+}
+
+.goog-te-combo:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15);
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* ---------- SEARCH MODAL OVERLAY ---------- */
+.search-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 100px;
+}
+
+.search-card {
+  background: #fff;
+  width: 90%;
+  max-width: 600px;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  animation: modalIn 0.3s ease-out;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-field-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 2px solid var(--primary);
+  padding-bottom: 8px;
+}
+
+.search-field-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 1.25rem;
+  font-family: inherit;
+  color: var(--text-dark);
+}
+
+.search-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.search-close-btn:hover {
+  color: var(--danger);
+}
+
+.search-suggestions-card {
+  margin-top: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.search-suggestion-item {
+  padding: 12px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-suggestion-item:hover {
+  background: #f8fafc;
+}
+
+.suggestion-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-suggestion-item .prod-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-dark);
+  text-transform: capitalize;
+}
+
+.search-suggestion-item .prod-cat {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--primary);
+  opacity: 0.8;
+}

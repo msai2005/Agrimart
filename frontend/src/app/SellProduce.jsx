@@ -1,0 +1,788 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+// Import all images from the produce directory eagerly
+const produceImages = import.meta.glob('../assets/images/produce/*.{png,jpg,jpeg,webp,svg}', { eager: true });
+
+// Create a map of normalized filenames to their imported URLs
+const imageMap = {};
+for (const path in produceImages) {
+    const filename = path.split('/').pop().toLowerCase();
+    const nameWithoutExt = filename.split('.')[0];
+    imageMap[nameWithoutExt] = produceImages[path].default || produceImages[path];
+}
+
+const CATEGORY_MAPPING = {
+    'Vegetables': ['tomato', 'potato', 'onion', 'cabbage', 'carrot', 'spinach', 'brinjal', 'eggplant', 'garlic', 'ginger', 'peas', 'cucumber', 'pumpkin', 'radish', 'capsicum', 'cauliflower', 'broccoli', 'beans', 'tomatoes', 'potatoes'],
+    'Fruits': ['apple', 'banana', 'mango', 'orange', 'grapes', 'papaya', 'watermelon', 'water melon', 'pomegranate', 'guava', 'pineapple', 'lemon', 'berry', 'cherry', 'strawberry', 'blueberry', 'kiwi'],
+    'Grains & Pulses': ['wheat', 'rice', 'paddy', 'maize', 'corn', 'millet', 'bajra', 'jowar', 'dal', 'lentil', 'chickpea', 'gram', 'soybean', 'mustard', 'oats', 'barley'],
+    'Spices': ['chilli', 'pepper', 'turmeric', 'coriander', 'cumin', 'clove', 'cardamom', 'cinnamon', 'nutmeg', 'fennel', 'saffron', 'garlic', 'ginger']
+};
+
+const LOCALIZED_SEARCH = {
+    'tomato': ['టమోటా', 'టమోటాలు', 'tamatar'],
+    'potato': ['బంగాళాదుంప', 'బంగాళాదుంపలు', 'aloo'],
+    'onion': ['ఉల్లిపాయ', 'ఉల్లిపాయలు', 'pyaaz'],
+    'brinjal': ['వంకాయ', 'వంకాయలు', 'baingan', 'eggplant'],
+    'apple': ['ఆపిల్', 'యాపిల్', 'seb'],
+    'banana': ['అరటి', 'అరటిపండు', 'kela'],
+    'rice': ['బియ్యం', 'వరి', 'paddy', 'chawal'],
+    'wheat': ['గోధుమలు', 'gehu'],
+    'chilli': ['మిరపకాయ', 'మిర్చి', 'mirch'],
+    'mango': ['మామిడి', 'మామిడిపండు', 'aam'],
+    'grapes': ['ద్రాక్ష', 'angoor'],
+    'watermelon': ['పుచ్చకాయ', 'tarbooz'],
+    'papaya': ['బొప్పాయి', 'papita'],
+    'orange': ['నారింజ', 'సంత్రా', 'santra'],
+    'cabbage': ['క్యాబేజీ', 'patta gobhi'],
+    'carrot': ['క్యారెట్', 'gajar'],
+    'spinach': ['పాలకూర', 'palak', 'paalak'],
+    'garlic': ['వెల్లుల్లి', 'lahsun'],
+    'ginger': ['అల్లం', 'adrak'],
+    'maize': ['మొక్కజొన్న', 'makka'],
+    'corn': ['మొక్కజొన్న', 'makka'],
+    'dal': ['పప్పు', 'పప్పులు'],
+    'lentil': ['పప్పు', 'పప్పులు'],
+    'turmeric': ['పసుపు', 'haldi'],
+    'coriander': ['కొత్తిమీర', 'dhaniya'],
+    'cumin': ['జీలకర్ర', 'jeera'],
+    'pepper': ['మిరియాలు', 'kali mirch'],
+    'cauliflower': ['కాలీఫ్లవర్'],
+};
+
+const PRODUCT_DATA = Object.entries(CATEGORY_MAPPING).flatMap(([category, items]) => 
+    items.map(name => {
+        const lowerName = name.toLowerCase();
+        return {
+            name: name.charAt(0).toUpperCase() + name.slice(1),
+            category,
+            image: lowerName.replace(/\s/g, '_'),
+            synonyms: LOCALIZED_SEARCH[lowerName] || []
+        };
+    })
+).filter((v, i, a) => a.findIndex(t => t.name === v.name) === i); // Deduplicate
+
+const guessCategory = (name) => {
+    let lowerName = name.trim().toLowerCase();
+    for (const [cat, keywords] of Object.entries(CATEGORY_MAPPING)) {
+        if (keywords.some(kw => lowerName.includes(kw))) {
+            return cat;
+        }
+    }
+    return '';
+};
+
+const SellProduce = () => {
+    const navigate = useNavigate();
+    const [marketPrices, setMarketPrices] = useState({ min: null, max: null, modal: null, fetching: false, error: null });
+    const [englishName, setEnglishName] = useState(''); // Store translated English name from backend
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [translatedSearchQuery, setTranslatedSearchQuery] = useState('');
+    const [activeTab, setActiveTab] = useState('All');
+
+    const [formData, setFormData] = useState({
+        productName: '',
+        category: '',
+        description: '',
+        pricePerKg: '',
+        quantityAvailable: '',
+        unit: 'kg',
+        locationType: 'manual', // 'manual' or 'current'
+        manualLocation: '',
+        latitude: null,
+        longitude: null,
+    });
+
+    const categories = ['Vegetables', 'Fruits', 'Grains & Pulses', 'Spices', 'Others'];
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handlePriceBlur = (e) => {
+        const adjustedPrices = getAdjustedPrices();
+        if (adjustedPrices) {
+            let val = parseFloat(formData.pricePerKg);
+            if (!isNaN(val)) {
+                if (val < adjustedPrices.min) {
+                    toast.warning(`Price increased to minimum allowed (₹${adjustedPrices.min})`);
+                    setFormData(prev => ({ ...prev, pricePerKg: adjustedPrices.min.toString() }));
+                } else if (val > adjustedPrices.max) {
+                    toast.warning(`Price decreased to maximum allowed (₹${adjustedPrices.max})`);
+                    setFormData(prev => ({ ...prev, pricePerKg: adjustedPrices.max.toString() }));
+                }
+            }
+        }
+    };
+
+    useEffect(() => {
+        const fetchMarketPrices = async () => {
+            if (!formData.productName || formData.productName.trim().length < 3) {
+                setMarketPrices({ min: null, max: null, modal: null, fetching: false, error: null });
+                return;
+            }
+
+            setMarketPrices(prev => ({ ...prev, fetching: true, error: null }));
+
+            try {
+                // The backend handles all translation and commodity normalization.
+                // We use the englishName (translated) if available, otherwise raw input.
+                const searchCommodity = englishName || formData.productName.trim();
+                const apiUrl = `/api/market/prices?commodity=${encodeURIComponent(searchCommodity)}`;
+                console.log(`[Frontend] Fetching market prices for: ${searchCommodity}`);
+
+                const response = await fetch(apiUrl, { credentials: 'include' });
+                if (!response.ok) throw new Error("Backend API returned an error");
+
+                const data = await response.json();
+
+                if (data && data.records && data.records.length > 0) {
+                    let min = Infinity;
+                    let max = -Infinity;
+                    let modalSum = 0;
+                    let modalCount = 0;
+
+                    data.records.forEach(record => {
+                        if (record.min_price && record.min_price < min) min = record.min_price;
+                        if (record.max_price && record.max_price > max) max = record.max_price;
+                        if (record.modal_price) {
+                            modalSum += record.modal_price;
+                            modalCount++;
+                        }
+                    });
+
+                    if (min !== Infinity && max !== -Infinity) {
+                        const modal = modalCount > 0 ? (modalSum / modalCount) : ((min + max) / 2);
+                        setMarketPrices({ min, max, modal, fetching: false, error: null });
+                        
+                        // Set the English name if provided by backend for category/image matching
+                        if (data.translatedCommodity) {
+                            setEnglishName(data.translatedCommodity);
+                        }
+                    } else {
+                        setMarketPrices({ min: null, max: null, modal: null, fetching: false, error: 'Could not determine price range.' });
+                    }
+                } else {
+                    setMarketPrices({ min: null, max: null, modal: null, fetching: false, error: 'No market data found for this product.' });
+                }
+
+            } catch (error) {
+                console.error("Error fetching market prices:", error);
+                setMarketPrices({ min: null, max: null, modal: null, fetching: false, error: 'Failed to fetch market prices.' });
+            }
+        };
+
+        const timeoutId = setTimeout(() => {
+            fetchMarketPrices();
+        }, 800);
+
+        return () => clearTimeout(timeoutId);
+    }, [formData.productName, englishName]);
+
+    // NEW: Debounced Native Language Search Translation Effect
+    useEffect(() => {
+        if (!searchQuery || searchQuery.trim().length < 2) {
+            setTranslatedSearchQuery('');
+            return;
+        }
+
+        const translateSearch = async () => {
+            try {
+                const isNonEnglish = /[^\x00-\x7F]+/.test(searchQuery);
+                if (!isNonEnglish) {
+                    setTranslatedSearchQuery('');
+                    return;
+                }
+
+                const res = await fetch(`/api/market/translate?text=${encodeURIComponent(searchQuery)}`, { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.translated && data.translated.toLowerCase() !== searchQuery.toLowerCase()) {
+                        setTranslatedSearchQuery(data.translated);
+                    }
+                }
+            } catch (err) {
+                console.error("Search Translation Error:", err);
+            }
+        };
+
+        const tId = setTimeout(translateSearch, 600); // Fast 600ms debounce for search
+        return () => clearTimeout(tId);
+    }, [searchQuery]);
+
+    const getAdjustedPrices = () => {
+        if (marketPrices.modal === null) return null;
+
+        let multiplier = 1; // Base is quintal
+        if (formData.unit === 'kg') multiplier = 0.01;
+        else if (formData.unit === 'ton') multiplier = 10;
+        else if (formData.unit === 'pieces') return null; // Cannot convert pieces to weight reliably
+
+        const adjustedModal = marketPrices.modal * multiplier;
+
+        return {
+            min: parseFloat((adjustedModal * 0.8).toFixed(2)),
+            max: parseFloat((adjustedModal * 1.2).toFixed(2)),
+            modal: parseFloat(adjustedModal.toFixed(2))
+        };
+    };
+
+    // Auto-populate price when modal price is updated and a multiplier is evaluated
+    useEffect(() => {
+        const adjustedPrices = getAdjustedPrices();
+        if (adjustedPrices && adjustedPrices.modal) {
+            setFormData(prev => ({
+                ...prev,
+                pricePerKg: adjustedPrices.modal.toString()
+            }));
+        }
+    }, [marketPrices.modal, formData.unit]);
+
+    // Auto-match category
+    const autoCategory = guessCategory(formData.productName) || (englishName ? guessCategory(englishName) : '');
+    useEffect(() => {
+        if (autoCategory) {
+            setFormData(prev => ({ ...prev, category: autoCategory }));
+        } else if (!formData.productName) {
+            setFormData(prev => ({ ...prev, category: '' }));
+            setEnglishName('');
+        }
+    }, [autoCategory, formData.productName, englishName]);
+
+    const handleGetCurrentLocation = async () => {
+        if (navigator.geolocation) {
+            toast.info("Fetching location...");
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    try {
+                        const { latitude, longitude } = position.coords;
+                        const currentLang = document.documentElement.lang || 'en';
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=${currentLang}`);
+                        const data = await response.json();
+
+                        // Prefer localized display name
+                        const address = data.display_name || `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`;
+
+                        setFormData(prev => ({
+                            ...prev,
+                            locationType: 'current',
+                            manualLocation: address,
+                            latitude: latitude,
+                            longitude: longitude
+                        }));
+                        toast.success("Location fetched successfully!");
+                    } catch (error) {
+                        toast.error("Failed to get address. Using coordinates.");
+                        setFormData(prev => ({
+                            ...prev,
+                            locationType: 'current',
+                            manualLocation: `Lat: ${position.coords.latitude.toFixed(4)}, Lng: ${position.coords.longitude.toFixed(4)}`,
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        }));
+                    }
+                },
+                (error) => {
+                    toast.error("Unable to get location. Please enter manually.");
+                    setFormData(prev => ({ ...prev, locationType: 'manual' }));
+                }
+            );
+        } else {
+            toast.error("Geolocation is not supported by your browser");
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        // Price validation against market range
+        const adjustedPrices = getAdjustedPrices();
+        if (adjustedPrices) {
+            const enteredPrice = parseFloat(formData.pricePerKg);
+            if (isNaN(enteredPrice)) {
+                toast.error("Please enter a valid price.");
+                return;
+            }
+            if (enteredPrice < adjustedPrices.min || enteredPrice > adjustedPrices.max) {
+                toast.error(`Price must be between ₹${adjustedPrices.min} and ₹${adjustedPrices.max} per ${formData.unit} according to market rates.`);
+                return;
+            }
+        } else if (!marketPrices.error && marketPrices.fetching) {
+            toast.error("Please wait for market prices to fetch.");
+            return;
+        } else if (!formData.productName) {
+            toast.error("Please enter a product name first.");
+            return;
+        } else if (!formData.pricePerKg || isNaN(parseFloat(formData.pricePerKg))) {
+            toast.error("Please enter a valid price.");
+            return;
+        }
+
+        // Make sure we have a category assigned (either auto-detected or explicitly set)
+        const finalCategory = autoCategory || formData.category;
+        if (!finalCategory) {
+            toast.error("Could not determine product category. Please try a different product name.");
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/products', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include', // Includes HTTP-only cookies like auth token
+                body: JSON.stringify({
+                    productName: formData.productName,
+                    category: finalCategory,
+                    description: formData.description,
+                    pricePerKg: formData.pricePerKg,
+                    quantityAvailable: formData.quantityAvailable,
+                    unit: formData.unit,
+                    locationType: formData.locationType,
+                    manualLocation: formData.manualLocation,
+                    latitude: formData.latitude,
+                    longitude: formData.longitude
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || "Failed to list product.");
+            }
+
+            console.log("Submitting Produce Data:", formData);
+            toast.success("Product listed successfully!");
+
+            // 🚀 REDIRECT: Go to My Products page
+            setTimeout(() => {
+                navigate('/my-products');
+            }, 1000);
+
+            // Reset form after standard submission
+            setFormData({
+                productName: '',
+                category: '',
+                description: '',
+                pricePerKg: '',
+                quantityAvailable: '',
+                unit: 'kg',
+                locationType: 'manual',
+                manualLocation: '',
+                latitude: null,
+                longitude: null,
+            });
+
+        } catch (error) {
+            console.error("Error submitting product:", error);
+            toast.error(error.message || "Failed to submit product.");
+        }
+    };
+
+    // Advanced image matching logic
+    const getProductImage = (productName) => {
+        if (!productName || productName.trim() === '') return null;
+        
+        // Normalize: lowercase, trim, and replace spaces with both dash and underscore
+        const name = productName.trim().toLowerCase();
+        const withDash = name.replace(/\s+/g, '-');
+        const withUnderscore = name.replace(/\s+/g, '_');
+        
+        // Check exact matches
+        if (imageMap[withDash]) return imageMap[withDash];
+        if (imageMap[withUnderscore]) return imageMap[withUnderscore];
+        
+        // Check plural/singular matches
+        const checkPlural = (n) => {
+            if (imageMap[n]) return imageMap[n];
+            if (n.endsWith('s') && imageMap[n.slice(0, -1)]) return imageMap[n.slice(0, -1)];
+            if (imageMap[n + 's']) return imageMap[n + 's'];
+            return null;
+        };
+        
+        let res = checkPlural(withDash) || checkPlural(withUnderscore);
+        if (res) return res;
+
+        // Substring matching as fallback
+        for (const key in imageMap) {
+            if (name.length > 2 && key.length > 2) {
+                if (name.includes(key) || key.includes(name)) return imageMap[key];
+            }
+        }
+        return null;
+    };
+
+    const imageSrc = getProductImage(formData.productName) || (englishName ? getProductImage(englishName) : null);
+    const adjustedPrices = getAdjustedPrices();
+
+    return (
+        <div style={{ padding: '120px 5% 40px', background: 'var(--bg-main)', minHeight: '100vh' }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', padding: '30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+                <h1 style={{ color: 'var(--primary-dark)', marginBottom: '30px', textAlign: 'center', fontSize: '2rem' }}>Sell Produce</h1>
+
+                <form onSubmit={handleSubmit}>
+                    {/* Section 1: Basic Information */}
+                    <div style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid #eee' }}>
+                        <h2 style={{ color: 'var(--primary)', marginBottom: '20px', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>1</span>
+                            Basic Information
+                        </h2>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+                            <div style={{ position: 'relative' }}>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-dark)', fontWeight: '500' }}>Product Name</label>
+                                <div 
+                                    onClick={() => setPickerOpen(!pickerOpen)}
+                                    style={{ 
+                                        width: '100%', padding: '12px', border: '1px solid #ccc', borderRadius: '8px', fontSize: '1rem',
+                                        cursor: 'pointer', background: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                    }}
+                                >
+                                    {formData.productName ? (
+                                        <span key={formData.productName}>{formData.productName}</span>
+                                    ) : (
+                                        <span style={{ color: '#94a3b8' }}>Select a product...</span>
+                                    )}
+
+                                    <i className={`fas ${pickerOpen ? 'fa-chevron-up' : 'fa-chevron-down'}`} style={{ fontSize: '0.8rem', color: '#64748b' }}></i>
+                                </div>
+
+                                {pickerOpen && (
+                                    <div style={{ 
+                                        position: 'absolute', top: '100%', left: 0, width: '100%', zIndex: 100, 
+                                        background: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                                        marginTop: '10px', padding: '0', border: '1px solid #e2e8f0',
+                                        maxHeight: '450px', overflowY: 'auto', boxSizing: 'border-box'
+                                    }}>
+                                        {/* Search & Tabs */}
+                                        <div style={{ 
+                                            position: 'sticky', top: 0, background: 'white', zIndex: 10, 
+                                            padding: '15px 15px 10px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                                        }}>
+                                            <div>
+                                                <input 
+                                                    type="text"
+                                                    placeholder="Search products (e.g. Tomato, Rice...)"
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    style={{ width: '100%', padding: '10px 15px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '12px', boxSizing: 'border-box' }}
+                                                />
+                                                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '5px' }}>
+                                                    {['All', ...Object.keys(CATEGORY_MAPPING)].map(cat => (
+                                                        <button
+                                                            key={cat}
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); setActiveTab(cat); }}
+                                                            style={{ 
+                                                                padding: '6px 12px', borderRadius: '20px', border: 'none', fontSize: '0.85rem', whiteSpace: 'nowrap',
+                                                                background: activeTab === cat ? 'var(--primary)' : '#f1f5f9',
+                                                                color: activeTab === cat ? 'white' : '#64748b', cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            {cat}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Product Grid */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '12px', padding: '0 15px 15px', marginTop: '10px' }}>
+                                            {PRODUCT_DATA
+                                                .filter(p => (activeTab === 'All' || p.category === activeTab))
+                                                .filter(p => {
+                                                    const s = searchQuery.toLowerCase().trim();
+                                                    const ts = translatedSearchQuery.toLowerCase().trim();
+                                                    const name = p.name.toLowerCase();
+                                                    const sy = (p.synonyms || []).some(sun => sun.toLowerCase().includes(s));
+                                                    return name.includes(s) || (ts && name.includes(ts)) || sy;
+                                                })
+                                                .map(item => (
+                                                    <div 
+                                                        key={item.name}
+                                                        onClick={() => {
+                                                            setFormData(prev => ({ ...prev, productName: item.name, category: item.category }));
+                                                            setEnglishName(item.name);
+                                                            setPickerOpen(false);
+                                                            setSearchQuery('');
+                                                        }}
+                                                        style={{ 
+                                                            padding: '10px', borderRadius: '10px', border: '1px solid #f1f5f9', textAlign: 'center', cursor: 'pointer',
+                                                            transition: 'all 0.2s', background: formData.productName === item.name ? '#f0fdf4' : 'transparent',
+                                                            borderColor: formData.productName === item.name ? 'var(--primary)' : '#f1f5f9'
+                                                        }}
+                                                        className="product-card"
+                                                    >
+                                                        <div style={{ width: '100%', aspectRatio: '1', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px', background: '#f8fafc' }}>
+                                                            {getProductImage(item.name) ? (
+                                                                <img src={getProductImage(item.name)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+                                                                    <i className="fas fa-leaf fa-2x"></i>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.85rem', fontWeight: '500', color: '#334155' }}>{item.name}</div>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                        {PRODUCT_DATA.filter(p => (activeTab === 'All' || p.category === activeTab)).filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                                            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                                                <i className="fas fa-search fa-3x" style={{ marginBottom: '15px', opacity: 0.3 }}></i>
+                                                <p>No products found matching "{searchQuery}"</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-dark)', fontWeight: '500' }}>Category</label>
+                                <div style={{
+                                    width: '100%', padding: '12px', border: '1px solid #ccc', borderRadius: '8px', fontSize: '1rem',
+                                    backgroundColor: '#f8fafc', color: 'var(--text-dark)', display: 'flex', alignItems: 'center', minHeight: '48px'
+                                }}>
+                                    {autoCategory || formData.category || <span style={{ color: '#94a3b8' }}>Auto-detected from product name</span>}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-dark)', fontWeight: '500' }}>Description <span style={{ color: '#94a3b8', fontSize: '0.9em', fontWeight: 'normal' }}>(Optional)</span></label>
+                                <textarea
+                                    name="description"
+                                    value={formData.description}
+                                    onChange={handleChange}
+                                    placeholder="Describe your produce (Optional)"
+                                    rows="4"
+                                    style={{ width: '100%', padding: '12px', border: '1px solid #ccc', borderRadius: '8px', fontSize: '1rem', resize: 'vertical' }}
+                                ></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section 2: Pricing & Stock */}
+                    <div style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid #eee' }}>
+                        <h2 style={{ color: 'var(--primary)', marginBottom: '20px', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>2</span>
+                            Pricing & Stock
+                        </h2>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-dark)', fontWeight: '500' }}>
+                                    Price (₹) {(!formData.productName || marketPrices.fetching) && <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>(Enter product name first)</span>}
+                                </label>
+                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <input
+                                        type="number"
+                                        name="pricePerKg"
+                                        value={formData.pricePerKg}
+                                        onChange={(e) => {
+                                            let val = e.target.value;
+                                            const adjustedPrices = getAdjustedPrices();
+                                            if (adjustedPrices && val !== '') {
+                                                let num = parseFloat(val);
+                                                if (!isNaN(num) && num > adjustedPrices.max) {
+                                                    toast.warning(`Price corrected to max (₹${adjustedPrices.max})`);
+                                                    val = adjustedPrices.max.toString();
+                                                }
+                                            }
+                                            handleChange({ target: { name: 'pricePerKg', value: val } });
+                                        }}
+                                        onBlur={handlePriceBlur}
+                                        placeholder="Ask price"
+                                        min={adjustedPrices ? adjustedPrices.min : "0"}
+                                        step="0.01"
+                                        required
+                                        disabled={!formData.productName || marketPrices.fetching}
+                                        style={{
+                                            flex: 1, padding: '12px', border: '1px solid #ccc', borderRadius: '8px 0 0 8px', fontSize: '1rem',
+                                            backgroundColor: (!formData.productName || marketPrices.fetching) ? '#f1f5f9' : 'white',
+                                            cursor: (!formData.productName || marketPrices.fetching) ? 'not-allowed' : 'text'
+                                        }}
+                                    />
+                                    <span style={{ padding: '12px', background: '#f5f5f5', border: '1px solid #ccc', borderLeft: 'none', borderRadius: '0 8px 8px 0', color: '#555' }}>
+                                        per {formData.unit}
+                                    </span>
+                                </div>
+                                {(() => {
+                                    if (adjustedPrices && formData.pricePerKg) {
+                                        const p = parseFloat(formData.pricePerKg);
+                                        if (!isNaN(p) && p < adjustedPrices.min) {
+                                            return <div style={{ fontSize: '0.8rem', color: '#ef4444', marginTop: '6px', fontWeight: '500' }}>⚠️ Minimum allowed is ₹{adjustedPrices.min}. It will auto-correct on tab.</div>;
+                                        }
+                                    }
+                                    return null;
+                                })()}
+                                {marketPrices.fetching && <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px' }}>Fetching current market prices...</div>}
+                                {marketPrices.error && <div style={{ fontSize: '0.8rem', color: '#ef4444', marginTop: '6px' }}>{marketPrices.error}</div>}
+                                {!marketPrices.fetching && adjustedPrices && (
+                                    <div style={{ padding: '10px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', marginTop: '10px' }}>
+                                        <div style={{ fontSize: '0.9rem', color: '#166534', fontWeight: 'bold', marginBottom: '4px' }}>
+                                            📊 Market Trends (per {formData.unit})
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px', fontSize: '0.85rem', color: '#15803d' }}>
+                                            <div>Min: <strong>₹{adjustedPrices.min}</strong></div>
+                                            <div>Max: <strong>₹{adjustedPrices.max}</strong></div>
+                                            <div>Suggested: <strong style={{ color: 'var(--primary-dark)' }}>₹{adjustedPrices.modal}</strong></div>
+                                        </div>
+                                        <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: '6px 0 0 0', fontStyle: 'italic' }}>
+                                            We've auto-filled the suggested price. You can adjust it within the min and max limits.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-dark)', fontWeight: '500' }}>Quantity Available</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <input
+                                        type="number"
+                                        name="quantityAvailable"
+                                        value={formData.quantityAvailable}
+                                        onChange={handleChange}
+                                        placeholder="Stock"
+                                        min="1"
+                                        required
+                                        disabled={!formData.productName}
+                                        style={{
+                                            flex: 2, padding: '12px', border: '1px solid #ccc', borderRadius: '8px', fontSize: '1rem',
+                                            backgroundColor: !formData.productName ? '#f1f5f9' : 'white',
+                                            cursor: !formData.productName ? 'not-allowed' : 'text'
+                                        }}
+                                    />
+                                    <select
+                                        name="unit"
+                                        value={formData.unit}
+                                        onChange={handleChange}
+                                        disabled={!formData.productName}
+                                        style={{
+                                            flex: 1, padding: '12px', border: '1px solid #ccc', borderRadius: '8px', fontSize: '1rem',
+                                            backgroundColor: !formData.productName ? '#f1f5f9' : 'white',
+                                            cursor: !formData.productName ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        <option value="kg">kg</option>
+                                        <option value="quintal">quintal</option>
+                                        <option value="ton">ton</option>
+                                        <option value="pieces">pieces</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Summary of Price x Quantity */}
+                        {formData.pricePerKg && formData.quantityAvailable && (
+                            <div style={{ marginTop: '20px', padding: '15px', background: 'var(--primary-light)', borderRadius: '8px', color: 'var(--primary-dark)', fontWeight: 'bold' }}>
+                                Total Value: ₹{(parseFloat(formData.pricePerKg) * parseFloat(formData.quantityAvailable)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Section 3: Location */}
+                    <div style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid #eee' }}>
+                        <h2 style={{ color: 'var(--primary)', marginBottom: '20px', fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>3</span>
+                            Location
+                        </h2>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                    <input
+                                        type="radio"
+                                        name="locationType"
+                                        value="manual"
+                                        checked={formData.locationType === 'manual'}
+                                        onChange={handleChange}
+                                    />
+                                    Enter manually
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                    <input
+                                        type="radio"
+                                        name="locationType"
+                                        value="current"
+                                        checked={formData.locationType === 'current'}
+                                        onChange={handleChange}
+                                    />
+                                    Use current location
+                                </label>
+                            </div>
+
+                            {formData.locationType === 'manual' ? (
+                                <input
+                                    type="text"
+                                    name="manualLocation"
+                                    value={formData.manualLocation}
+                                    onChange={handleChange}
+                                    placeholder="Enter farm address, village, or pincode"
+                                    required
+                                    style={{ width: '100%', padding: '12px', border: '1px solid #ccc', borderRadius: '8px', fontSize: '1rem' }}
+                                />
+                            ) : (
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <input
+                                        type="text"
+                                        name="manualLocation"
+                                        value={formData.manualLocation}
+                                        onChange={handleChange}
+                                        placeholder="Location coordinates will appear here"
+                                        required
+                                        readOnly
+                                        style={{ flex: 1, padding: '12px', border: '1px solid #ccc', borderRadius: '8px', fontSize: '1rem', background: '#f9f9f9' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleGetCurrentLocation}
+                                        className="btn btn-secondary"
+                                        style={{ whiteSpace: 'nowrap' }}
+                                    >
+                                        Fetch Location
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Image Preview Box */}
+                    <div style={{ marginBottom: '30px', padding: '20px', background: '#f8fafc', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <div style={{ width: '100px', height: '100px', borderRadius: '10px', overflow: 'hidden', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #cbd5e1' }}>
+                            {imageSrc ? (
+                                <img
+                                    src={imageSrc}
+                                    alt={formData.productName}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                            ) : (
+                                <div style={{ textAlign: 'center', color: '#64748b', fontSize: '0.8rem', padding: '10px' }}>
+                                    {formData.productName ? 'Image not found' : 'Image Preview'}
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <h4 style={{ color: 'var(--text-dark)', marginBottom: '5px' }}>Product Image</h4>
+                            <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
+                                An image will be automatically selected based on the your product name (e.g., tomatoes.jpg).
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
+                        style={{ width: '100%', padding: '15px', fontSize: '1.2rem', marginTop: '10px' }}
+                    >
+                        List Product for Sale
+                    </button>
+                </form>
+            </div >
+        </div >
+    );
+};
+
+export default SellProduce;
+

@@ -1,0 +1,62 @@
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const connectDB = require("./config/db");
+const auth = require("./middleware/authMiddleware");
+const { initScheduler } = require("./utils/scheduler");
+
+const app = express();
+
+// Middleware
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+
+// Connect to DB
+connectDB();
+
+// Initialize background scheduler
+initScheduler();
+
+// Routes
+app.use("/api/auth", require("./routes/authRoutes"));
+app.use("/api/user", require("./routes/userRoutes"));
+app.use("/api/market", require("./routes/marketRoutes"));
+app.use("/api/products", require("./routes/productRoutes"));
+app.use("/api/orders", require("./routes/orderRoutes"));
+app.use("/api/cart", require("./routes/cartRoutes"));
+app.use("/api/dashboard", require("./routes/dashboardRoutes"));
+app.use("/api/predictions", require("./routes/predictionRoutes"));
+app.use("/api/predict", require("./routes/predictionRoutes"));
+app.use("/api/admin", require("./routes/adminRoutes"));
+app.use("/api/delivery", require("./routes/deliveryRoutes"));
+app.use("/api/complaints", require("./routes/complaintRoutes"));
+app.use("/api/chatbot", require("./routes/chatbotRoutes"));
+
+// Health Check
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", time: new Date() });
+});
+
+// Protected Test Route
+app.get("/dashboard", auth, (req, res) => {
+  res.json({ message: `Welcome ${req.user.role}` });
+});
+
+const PORT = process.env.PORT || 3000;
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Fatal] Unhandled Rejection at:', promise, 'reason:', reason);
+  // Optional: log to file if needed
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server listening at port ${PORT} on 0.0.0.0`);
+});

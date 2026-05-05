@@ -1,0 +1,198 @@
+import React, { useState, useEffect } from 'react';
+import "../assets/styles/LivePrices.css"; 
+
+const Prices = () => {
+    const [prices, setPrices] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [lastUpdated, setLastUpdated] = useState(null);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchAllPrices = async () => {
+            try {
+                // 1. Fetch status in parallel with other data (non-blocking)
+                const statusPromise = fetch("/api/market/status").then(r => r.ok ? r.json() : null).catch(() => null);
+                
+                // 2. Fetch market data sources in parallel
+                const fetchTargets = [
+                    { name: 'all', url: "/api/market/prices?limit=100" },
+                    { name: 'mango', url: "/api/market/prices?commodity=Mango&limit=1" },
+                    { name: 'melon', url: "/api/market/prices?commodity=Water%20Melon&limit=1" },
+                    { name: 'tomato', url: "/api/market/prices?commodity=Tomato&limit=1" }
+                ];
+
+                const results = await Promise.allSettled(fetchTargets.map(t => 
+                    fetch(t.url).then(async r => {
+                        if (!r.ok) throw new Error(`${t.name} fetch failed`);
+                        return r.json();
+                    })
+                ));
+
+                // 3. Handle Status
+                const statusData = await statusPromise;
+                if (statusData && statusData.prices) {
+                    setLastUpdated(statusData.prices);
+                }
+
+                // 4. Aggregate Records
+                let allRecords = [];
+                results.forEach((result, index) => {
+                    if (result.status === 'fulfilled' && result.value?.records) {
+                        // Prepend specific pins, append 'all'
+                        if (fetchTargets[index].name === 'all') {
+                            allRecords = [...allRecords, ...result.value.records];
+                        } else {
+                            allRecords = [...result.value.records, ...allRecords];
+                        }
+                    } else if (result.status === 'rejected') {
+                        console.warn(`Price source failed: ${fetchTargets[index].name}`, result.reason);
+                    }
+                });
+
+                if (allRecords.length > 0) {
+                    const formattedPrices = allRecords.map((record, index) => ({
+                        id: index + 1,
+                        name: record.commodity,
+                        price: record.modal_price ? (Number(record.modal_price) / 100).toFixed(2) : "N/A",
+                        unit: "kg",
+                        location: `${record.market}, ${record.state}`,
+                        updated: record.arrival_date || "Today",
+                        trend: "stable", 
+                    }));
+
+                    // Deduplicate by name and location
+                    const uniquePrices = [];
+                    const seen = new Set();
+                    for (const item of formattedPrices) {
+                        const key = `${item.name}-${item.location}`.toLowerCase();
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            uniquePrices.push(item);
+                        }
+                    }
+
+                    setPrices(uniquePrices);
+                    setError(null);
+                } else {
+                    setError("Market data is temporarily unavailable. Please try again in 1 minute.");
+                }
+            } catch (error) {
+                console.error("Error loading live prices:", error);
+                setError("Unable to connect to market service. Please check your internet connection.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAllPrices();
+    }, []);
+
+    const filteredPrices = prices.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        item.location.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+        <div style={{ padding: '4rem 5%', minHeight: '60vh', background: 'var(--bg-main)' }}>
+            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <h1 style={{ color: 'var(--primary)', fontSize: '2.5rem', marginBottom: '1rem' }}>Live Market Prices</h1>
+                <p style={{ color: 'var(--text-light)', fontSize: '1.2rem' }}>Comprehensive real-time pricing data across all regions.</p>
+                {lastUpdated && (
+                    <p style={{ color: '#64748b', fontSize: '1rem', marginTop: '0.5rem' }}>
+                        Last updated: {new Date(lastUpdated).toLocaleDateString('en-GB')} {new Date(lastUpdated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                )}
+            </div>
+
+            <div style={{ maxWidth: '800px', margin: '0 auto 2rem auto' }}>
+                <input 
+                    type="text" 
+                    placeholder="Search by product name or location..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                        width: '100%',
+                        padding: '12px 20px',
+                        fontSize: '1.1rem',
+                        borderRadius: '30px',
+                        border: '1px solid #cbd5e1',
+                        outline: 'none',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                    }}
+                />
+            </div>
+
+            {loading ? (
+                <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-light)", fontSize: "1.2rem" }}>
+                    Loading market data...
+                </div>
+            ) : error ? (
+                <div style={{ 
+                    textAlign: "center", 
+                    padding: "3rem", 
+                    maxWidth: "600px", 
+                    margin: "0 auto",
+                    background: "#fef2f2",
+                    border: "1px solid #fee2e2",
+                    borderRadius: "12px",
+                    color: "#991b1b"
+                }}>
+                    <p style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>⚠️ {error}</p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        style={{
+                            padding: "8px 20px",
+                            background: "var(--primary)",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "20px",
+                            cursor: "pointer"
+                        }}
+                    >
+                        Try Refreshing
+                    </button>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '800px', margin: '0 auto' }}>
+                    {filteredPrices.length > 0 ? (
+                        filteredPrices.map((item) => (
+                            <div key={item.id} style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center', 
+                                background: 'white', 
+                                padding: '20px', 
+                                borderRadius: '12px', 
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                                flexWrap: 'wrap',
+                                gap: '15px'
+                            }}>
+                                <div style={{ flex: '1 1 200px' }}>
+                                    <h3 style={{ fontSize: '1.3rem', color: 'var(--text-dark)', margin: '0 0 5px 0' }}>{item.name}</h3>
+                                    <p style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#64748b', fontSize: '0.9rem', margin: '0' }}>
+                                        📍 {item.location}
+                                    </p>
+                                </div>
+
+                                <div style={{ flex: '1 1 100px', textAlign: 'right' }}>
+                                    <p style={{ fontSize: '1.6rem', fontWeight: 'bold', color: 'var(--primary)', margin: '0 0 5px 0' }}>
+                                        ₹{item.price} <span style={{ fontSize: '1rem', color: '#64748b', fontWeight: 'normal' }}>/ {item.unit}</span>
+                                    </p>
+                                    <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '0' }}>📅 {item.updated}</p>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                            No products found matching your search.
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default Prices;
+

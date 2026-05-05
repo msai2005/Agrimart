@@ -1,0 +1,43 @@
+import React from "react";
+import "../assets/styles/Footer.css";
+
+const Footer = () => {
+  return (
+    <footer className="footer">
+      <div className="footer-content">
+
+        <div className="footer-column">
+          <h3>AGRIMART</h3>
+          <p>Connecting Farmers Directly to Consumers</p>
+        </div>
+
+        <div className="footer-column">
+          <h4>Quick Links</h4>
+          <ul>
+            <li>Home</li>
+            <li>Products</li>
+            <li><a href="/about" style={{ textDecoration: 'none', color: 'inherit' }}>About</a></li>
+            <li><a href="/contact" style={{ textDecoration: 'none', color: 'inherit' }}>Contact Us</a></li>
+          </ul>
+        </div>
+
+        <div className="footer-column">
+          <h4>User Roles</h4>
+          <ul>
+            <li>Farmers</li>
+            <li>Customers</li>
+            <li>Delivery Partners</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div className="footer-bottom">
+        © {new Date().getFullYear()} AGRIMART. All rights reserved.
+      </div>
+    </footer>
+  );
+};
+
+export default Footer;
+
