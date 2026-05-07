@@ -26,7 +26,7 @@ app.use(cookieParser());
 connectDB();
 
 // Initialize background scheduler
-initScheduler();
+// initScheduler();
 
 // Routes
 app.use("/api/auth", require("./routes/authRoutes"));
