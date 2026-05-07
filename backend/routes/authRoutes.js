@@ -111,7 +111,7 @@ router.post("/register", authLimiter, registerValidation, async (req, res) => {
         await userExists.save();
 
         if (email) {
-          const verificationURL = `http://localhost:3000/api/auth/verify/${verificationToken}`;
+          const verificationURL = `https://agrimart-backend-q3ee.onrender.com/api/auth/verify/${verificationToken}`;
 
           // Asynchronous email delivery for account verification
           transporter.sendMail({
@@ -207,7 +207,7 @@ router.get("/verify/:token", async (req, res) => {
 
     if (!user) {
       return res.redirect(
-        "http://localhost:5173/signup/customer?verified=failed"
+        "https://agrimart-bvmk.vercel.app/signup/customer?verified=failed"
       );
     }
 
@@ -219,7 +219,7 @@ router.get("/verify/:token", async (req, res) => {
 
     // Redirect to frontend signup page with success status
     return res.redirect(
-      `http://localhost:5173/signup/${user.role}?verified=success`
+      `https://agrimart-bvmk.vercel.app/signup/${user.role}?verified=success`
     );
 
   } catch (err) {
