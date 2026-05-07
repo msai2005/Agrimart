@@ -225,8 +225,8 @@ router.get("/verify/:token", async (req, res) => {
   } catch (err) {
     console.error("EMAIL VERIFY ERROR:", err);
     return res.redirect(
-      "http://localhost:5173/signup/customer?verified=failed"
-    );
+      
+    );"https://agrimart-bvmk.vercel.app/signup/customer?verified=failed"
   }
 });
 
