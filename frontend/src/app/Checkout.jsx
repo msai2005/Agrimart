@@ -61,8 +61,6 @@ const Checkout = () => {
     const [calculatingDelivery, setCalculatingDelivery] = useState(false);
     const [hubs, setHubs] = useState([]);
 
-    const API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjQ4NmIzNzMzZmRkNzQ4M2Y4MTZhNDlmZWFmMDkwYzMyIiwiaCI6Im11cm11cjY0In0=";
-
     const geocodeAddress = async (addressText) => {
         try {
             const currentLang = document.documentElement.lang || 'en';
@@ -81,7 +79,7 @@ const Checkout = () => {
             }
 
             // Fallback to OpenRouteService if Nominatim fails
-            const orsRes = await fetch(`https://api.openrouteservice.org/geocode/search?api_key=${API_KEY}&text=${encodeURIComponent(addressText)}`);
+            const orsRes = await fetch(`/api/geocoding/geocode?text=${encodeURIComponent(addressText)}`);
             const orsData = await orsRes.json();
             if (orsData && orsData.features && orsData.features.length > 0) {
                 const feature = orsData.features[0];
@@ -147,7 +145,7 @@ const Checkout = () => {
         try {
             const startStr = `${startCoords[0]},${startCoords[1]}`;
             const endStr = `${endCoords[0]},${endCoords[1]}`;
-            const res = await fetch(`https://api.openrouteservice.org/v2/directions/driving-car?api_key=${API_KEY}&start=${startStr}&end=${endStr}`);
+            const res = await fetch(`/api/geocoding/directions?start=${encodeURIComponent(startStr)}&end=${encodeURIComponent(endStr)}`);
             const data = await res.json();
             if (data && data.features && data.features.length > 0) {
                 return data.features[0].properties.segments[0].distance / 1000;

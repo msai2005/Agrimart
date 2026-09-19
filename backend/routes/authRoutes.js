@@ -494,7 +494,8 @@ router.post("/login", authLimiter, loginValidation, async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true, // Prevents client-side JS from reading the cookie
       secure: process.env.NODE_ENV === "production", // Ensures cookie is sent over HTTPS in prod
-      sameSite: "strict", // Protects against CSRF
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax", // Protects against CSRF
+      path: "/",
       maxAge: 24 * 60 * 60 * 1000 // 1 day in milliseconds
     });
 
@@ -723,7 +724,14 @@ router.post("/logout", async (req, res) => {
     res.clearCookie("token", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict"
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      path: "/"
+    });
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      path: "/api/auth"
     });
     res.json({ message: "Logged out successfully" });
   } catch (err) {

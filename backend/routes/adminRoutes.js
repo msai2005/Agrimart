@@ -43,7 +43,8 @@ router.post("/login", async (req, res) => {
     res.cookie("adminToken", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      path: "/",
       maxAge: 24 * 60 * 60 * 1000 // 1 day
     });
 
@@ -84,7 +85,15 @@ router.post("/logout", (req, res) => {
     httpOnly: true, 
     expires: new Date(0),
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict"
+    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+    path: "/"
+  });
+  res.cookie("adminToken", "", {
+    httpOnly: true,
+    expires: new Date(0),
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+    path: "/api/admin"
   });
   res.json({ message: "Admin logged out successfully" });
 });
