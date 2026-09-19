@@ -40,5 +40,3 @@ MongoDB
 - Pandas, NumPy
 
 ---
-
-## 📂 Project Structure
