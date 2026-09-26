@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -12,11 +11,12 @@ export default defineConfig({
         secure: false,
         timeout: 60000,
         proxyTimeout: 60000,
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
-            console.error('[Vite Proxy Error]', err);
-          });
-        }
+
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            console.error('[Vite Proxy Error]', err)
+          })
+        },
       },
     },
   },
