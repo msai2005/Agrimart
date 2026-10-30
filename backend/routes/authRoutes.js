@@ -225,8 +225,8 @@ router.get("/verify/:token", async (req, res) => {
   } catch (err) {
     console.error("EMAIL VERIFY ERROR:", err);
     return res.redirect(
-      
-    );"https://agrimart-bvmk.vercel.app/signup/customer?verified=failed"
+      "https://agrimart-bvmk.vercel.app/signup/customer?verified=failed"
+    );
   }
 });
 
@@ -273,8 +273,10 @@ router.post("/send-email-verify", otpLimiter, async (req, res) => {
       `
     }).catch(err => console.error("Background Email Sending Failed:", err));
 
-    console.log(`[AUTH] EMAIL OTP FOR ${email}: ${otp}`);
-    return res.json({ message: "Verification OTP sent successfully", otp });
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AUTH] Email OTP generated for local development (not returned in API response)");
+    }
+    return res.json({ message: "Verification OTP sent successfully" });
 
   } catch (err) {
     console.error("SEND EMAIL OTP ERROR:", err);
@@ -346,8 +348,10 @@ router.post("/send-mobile-otp", otpLimiter, async (req, res) => {
       { upsert: true, new: true }
     );
 
-    console.log(`[AUTH] MOBILE OTP FOR ${phone}: ${otp}`);
-    return res.json({ message: "OTP sent successfully", otp });
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[AUTH] Mobile OTP generated for local development (not returned in API response)");
+    }
+    return res.json({ message: "OTP sent successfully" });
 
   } catch (err) {
     console.error("SEND OTP ERROR:", err);
@@ -570,11 +574,12 @@ router.post("/forgot-password/send-otp", otpLimiter, async (req, res) => {
         `
       }).catch(err => console.error("Background Password Reset Email Failed:", err));
 
-      return res.json({ message: "Password reset OTP sent to your email", otp });
+      return res.json({ message: "Password reset OTP sent to your email" });
     } else {
-      // It's a phone number, log to console for now
-      console.log("📱 Password Reset OTP for", contact, "is:", otp);
-      return res.json({ message: "Password reset OTP sent to your mobile", otp });
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[AUTH] Password reset OTP generated for local development (not returned in API response)");
+      }
+      return res.json({ message: "Password reset OTP sent to your mobile" });
     }
 
   } catch (err) {

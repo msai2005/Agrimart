@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 import { LocationProvider } from "./context/LocationContext";
@@ -31,9 +31,7 @@ import Checkout from "./app/Checkout";
 import CustomerOrders from "./app/CustomerOrders";
 import ShippingPolicy from "./app/ShippingPolicy";
 import Profile from "./app/Profile";
-import Chatbot from "./components/Chatbot";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
+import RoleRoute from "./components/RoleRoute";
 
 /**
  * Admin component imports
@@ -87,18 +85,18 @@ function App() {
                   <Route path="/services" element={<Services />} />
                   <Route path="/contact" element={<Contact />} />
                   <Route path="/prices" element={<Prices />} />
-                  <Route path="/sell-produce" element={<SellProduce />} />
-                  <Route path="/my-products" element={<MyProducts />} />
-                  <Route path="/orders-received" element={<OrdersReceived />} />
-                  <Route path="/revenue" element={<OrdersReceived />} />
-                  <Route path="/farmer-stock" element={<FarmerStock />} />
-                  <Route path="/price-prediction" element={<PricePrediction />} />
+                  <Route path="/sell-produce" element={<RoleRoute roles={["farmer"]}><SellProduce /></RoleRoute>} />
+                  <Route path="/my-products" element={<RoleRoute roles={["farmer"]}><MyProducts /></RoleRoute>} />
+                  <Route path="/orders-received" element={<RoleRoute roles={["farmer"]}><OrdersReceived /></RoleRoute>} />
+                  <Route path="/revenue" element={<RoleRoute roles={["farmer"]}><OrdersReceived /></RoleRoute>} />
+                  <Route path="/farmer-stock" element={<RoleRoute roles={["farmer"]}><FarmerStock /></RoleRoute>} />
+                  <Route path="/price-prediction" element={<RoleRoute roles={["farmer"]}><PricePrediction /></RoleRoute>} />
                   <Route path="/product/:id" element={<ProductDetails />} />
-                  <Route path="/cart" element={<Cart />} />
-                  <Route path="/checkout" element={<Checkout />} />
-                  <Route path="/orders" element={<CustomerOrders />} />
+                  <Route path="/cart" element={<RoleRoute roles={["customer"]}><Cart /></RoleRoute>} />
+                  <Route path="/checkout" element={<RoleRoute roles={["customer"]}><Checkout /></RoleRoute>} />
+                  <Route path="/orders" element={<RoleRoute roles={["customer"]}><CustomerOrders /></RoleRoute>} />
                   <Route path="/shipping-policy" element={<ShippingPolicy />} />
-                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/profile" element={<RoleRoute roles={["customer", "farmer"]}><Profile /></RoleRoute>} />
                 </Route>
 
                 {/* Auth Routes */}

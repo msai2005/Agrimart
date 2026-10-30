@@ -161,6 +161,10 @@ router.post('/', async (req, res) => {
                     runningPrice = predicted;
                 }
 
+                if (next_7_days.length === 0) {
+                    return res.status(404).json({ error: `No upcoming prediction dates available for ${crop}.` });
+                }
+
                 const firstPrice = next_7_days[0].price;
                 const lastPrice = next_7_days[next_7_days.length - 1].price;
                 const trend = lastPrice > firstPrice ? "increasing" : (lastPrice < firstPrice ? "decreasing" : "stable");

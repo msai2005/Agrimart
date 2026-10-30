@@ -55,8 +55,8 @@ const Contact = () => {
             const response = await fetch('/api/complaints', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
-                    userId: user?.id,
                     name: formData.name,
                     email: formData.email,
                     category: formData.category,

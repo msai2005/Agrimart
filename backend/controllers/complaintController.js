@@ -7,11 +7,10 @@ const Order = require('../models/orderModel');
 // @access  Public/Private
 exports.submitComplaint = async (req, res) => {
     try {
-        const { userId, orderId, category, subject, description, name, email } = req.body;
+        const { orderId, category, subject, description, email } = req.body;
 
-        // If userId is provided, use it. Otherwise, try to find user by email or create a placeholder if needed.
-        // For a seamless experience, we'll allow guest submissions but ideally require a user reference if they are logged in.
-        let userRef = userId;
+        // Never trust a client-supplied userId. Use the logged-in user, or look up by email.
+        let userRef = req.user?.id || null;
         if (!userRef && email) {
             const user = await User.findOne({ email });
             if (user) userRef = user._id;

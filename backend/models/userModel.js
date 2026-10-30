@@ -57,6 +57,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: false
     },
+    latitude: {
+      type: Number,
+      required: false
+    },
+    longitude: {
+      type: Number,
+      required: false
+    },
     
     // 🔹 Delivery Agent specifics (Only populated if role is delivery_partner)
     vehicleType: {

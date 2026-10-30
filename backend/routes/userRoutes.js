@@ -123,7 +123,8 @@ router.put("/profile-update", auth, async (req, res) => {
     if (address) user.address = address;
 
     await user.save();
-    res.json({ message: "Profile updated successfully", user });
+    const safeUser = await User.findById(user._id).select("-password -verificationToken -mobileOTP");
+    res.json({ message: "Profile updated successfully", user: safeUser });
   } catch (err) {
     console.error("PROFILE UPDATE ERROR:", err);
     if (err.code === 11000) {
@@ -172,16 +173,30 @@ router.put("/product/:id/status", auth, async (req, res) => {
     const product = await require('../models/productModel').findById(id).populate('farmer', 'name email phone');
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    // 🔒 RESTRICTION: Farmer can only update status to certain levels
+    const farmerId = product.farmer?._id
+      ? product.farmer._id.toString()
+      : product.farmer?.toString();
+
+    const farmerAllowedStatuses = ['Listed', 'Packed', 'Ready for Pickup'];
+    const deliveryAllowedStatuses = ['Picked Up', 'At Hub', 'Verified', 'Completed'];
+
     if (req.user.role === 'farmer') {
-        if (product.farmer._id.toString() !== req.user.id) {
+        if (farmerId !== req.user.id) {
             return res.status(403).json({ message: "Unauthorized to update this product status" });
         }
-
-        const restrictedStatuses = ['Picked Up', 'At Hub', 'Verified', 'Completed'];
-        if (restrictedStatuses.includes(deliveryStatus)) {
+        if (!farmerAllowedStatuses.includes(deliveryStatus)) {
             return res.status(400).json({ message: "This logistics step must be performed by a delivery partner or hub personnel." });
         }
+    } else if (req.user.role === 'delivery_partner') {
+        if (!deliveryAllowedStatuses.includes(deliveryStatus)) {
+            return res.status(400).json({ message: "Delivery partners cannot set this status." });
+        }
+    } else if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Unauthorized to update product status" });
+    }
+
+    if (!farmerAllowedStatuses.concat(deliveryAllowedStatuses).includes(deliveryStatus) && req.user.role !== 'admin') {
+        return res.status(400).json({ message: "Invalid delivery status" });
     }
 
     product.deliveryStatus = deliveryStatus;

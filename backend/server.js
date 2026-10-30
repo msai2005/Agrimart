@@ -57,6 +57,17 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date() });
 });
 
+app.use((err, req, res, next) => {
+  if (err && err.message === "Origin is not allowed by CORS") {
+    return res.status(403).json({ message: "This origin is not allowed" });
+  }
+  if (err) {
+    console.error("[Server] Unhandled request error:", err.message);
+    return res.status(500).json({ message: "Server error" });
+  }
+  next();
+});
+
 // Protected Test Route
 app.get("/dashboard", auth, (req, res) => {
   res.json({ message: `Welcome ${req.user.role}` });

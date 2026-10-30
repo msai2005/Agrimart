@@ -82,7 +82,7 @@ const reverseCategoryDictionary = {
 // @route   GET /api/products/search
 router.get('/search', async (req, res) => {
     try {
-        let { q, lang } = req.query;
+        let { q, lang, lat, lng } = req.query;
         if (!q) return res.json([]);
         q = q.trim();
         if (lang) lang = lang.split('-')[0];
@@ -304,7 +304,20 @@ router.put('/:id', auth, async (req, res) => {
     try {
         const product = await Product.findById(req.params.id);
         if (!product || product.farmer.toString() !== req.user.id) return res.status(403).json({ message: 'Unauthorized' });
-        const updated = await Product.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
+
+        const allowedFields = [
+            'productName', 'category', 'description', 'pricePerKg',
+            'quantityAvailable', 'unit', 'locationType', 'manualLocation',
+            'latitude', 'longitude'
+        ];
+        const updates = {};
+        for (const field of allowedFields) {
+            if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+                updates[field] = req.body[field];
+            }
+        }
+
+        const updated = await Product.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true, runValidators: true });
         res.json(updated);
     } catch (error) {
         res.status(500).json({ message: 'Server Error' });
